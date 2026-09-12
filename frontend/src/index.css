@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gemini-bg: #1e1f20;
+  --color-gemini-sidebar: #131314;
+  --color-gemini-sidebar-hover: #282a2c;
+  --color-gemini-text-primary: #e3e3e3;
+  --color-gemini-text-secondary: #c4c7c5;
+  --color-gemini-input-bg: #1e1f20;
+  --color-gemini-input-border: #444746;
+  --color-gemini-user-msg: #333538;
+}
+
+body {
+  background-color: var(--color-gemini-bg);
+  color: var(--color-gemini-text-primary);
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--color-gemini-input-border);
+  border-radius: 20px;
+}
