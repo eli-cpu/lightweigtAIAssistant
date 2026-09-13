@@ -1,4 +1,5 @@
 import express from "express";
+import { protectRoute } from "../middleware/protectRoute.js";
 
 import {
   getID_ChatNames,
@@ -11,11 +12,11 @@ import {
 
 const router = express.Router();
 
-router.get("/chats", getID_ChatNames);
-router.get("/chats/:id", getChatHistory);
-router.post("/chats", createNewChat);
-router.delete("/chats/:id", deleteChat);
-router.put("/chats/:id/name", updateChatName);
-router.put("/chats/:id/history", updateChatHistory);
+router.get("/chats", protectRoute, getID_ChatNames);
+router.get("/chats/:id", protectRoute, getChatHistory);
+router.post("/chats", protectRoute, createNewChat);
+router.delete("/chats/:id", protectRoute, deleteChat);
+router.put("/chats/:id/name", protectRoute, updateChatName);
+router.put("/chats/:id/history", protectRoute, updateChatHistory);
 
 export default router;
