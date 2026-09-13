@@ -1,14 +1,8 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "../utils/supabaseConfig.js";
 import dotenv from "dotenv";
 import { generateResponse } from "./llm.controller.js";
 
 dotenv.config();
-
-const privateKey = process.env.SUPABASE_SECRET_KEY;
-if (!privateKey) throw new Error(`Expected env var SUPABASE_SECRET_KEY`);
-const url = process.env.SUPABASE_URL;
-if (!url) throw new Error(`Expected env var SUPABASE_URL`);
-const supabase = createClient(url, privateKey);
 
 // just getting the chat name and id from the database and not the history to save on bandwidth
 export const getID_ChatNames = async (req, res) => {

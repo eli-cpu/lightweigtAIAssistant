@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 
 import databaseRoutes from "./routes/database.route.js";
 import llmRoutes from "./routes/llm.route.js";
@@ -11,6 +12,7 @@ const app = express();
 
 app.use(cors()); // allows cross-origin requests from the frontend to the backend
 app.use(express.json()); // allows us to parse JSON bodies in requests
+app.use(cookieParser()); // allows us to parse cookies in requests
 
 app.use("/database", databaseRoutes);
 app.use("/llm", llmRoutes);

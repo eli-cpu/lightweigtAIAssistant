@@ -1,12 +1,6 @@
 import { generateTokenAndSetCookie } from "../utils/generateToken.js";
 import bcrypt from "bcryptjs";
-import { createClient } from "@supabase/supabase-js";
-
-const privateKey = process.env.SUPABASE_SECRET_KEY;
-if (!privateKey) throw new Error(`Expected env var SUPABASE_SECRET_KEY`);
-const url = process.env.SUPABASE_URL;
-if (!url) throw new Error(`Expected env var SUPABASE_URL`);
-const supabase = createClient(url, privateKey);
+import { supabase } from "../utils/supabaseConfig.js";
 
 export const signup = async (req, res) => {
   try {
@@ -51,13 +45,13 @@ export const signup = async (req, res) => {
     const newUser = {
       username,
       email,
-      password: hashedPassword,
+      password_hash: hashedPassword,
     };
 
     if (newUser) {
       generateTokenAndSetCookie(newUser.id, res);
-      await supabase.from("users").insert(newUser);
-
+      const { data, error } = await supabase.from("users").insert(newUser);
+      if (error) throw error;
       res.status(201).json({
         id: newUser.id,
         username: newUser.username,
@@ -81,9 +75,10 @@ export const login = async (req, res) => {
       .select("*")
       .eq("username", username)
       .maybeSingle();
+    if (error) throw error;
     const isPasswordCorrect = await bcrypt.compare(
       password,
-      user?.password || "",
+      user?.password_hash || "",
     );
 
     if (!user || !isPasswordCorrect) {
@@ -109,21 +104,6 @@ export const logout = async (req, res) => {
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.log("Error in logout controller", error.message);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-};
-
-export const getMe = async (req, res) => {
-  try {
-    // const user = await User.findById(req.user.id).select("-password");
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", req.user.id)
-      .maybeSingle();
-    res.status(200).json(user);
-  } catch (error) {
-    console.log("Error in getMe controller", error.message);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
