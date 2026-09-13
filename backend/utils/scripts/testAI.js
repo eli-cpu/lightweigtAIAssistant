@@ -10,7 +10,7 @@ const openai = new OpenAI({
 
 const chatCompletion = await openai.chat.completions.create({
   messages: [{ role: "user", content: "Say this is a test" }],
-  model: "gpt-oss:latest",
+  model: process.env.OLLAMA_MODEL,
 });
 
 console.log(chatCompletion.choices[0].message.content);

@@ -1,6 +1,6 @@
 import { supabase } from "../utils/supabaseConfig.js";
 import dotenv from "dotenv";
-import { generateResponse } from "./llm.controller.js";
+import { generateCompletion } from "./llm.controller.js";
 
 dotenv.config();
 
@@ -40,8 +40,15 @@ const getLargestChatId = async (req, res) => {
 
 export const createNewChat = async (req, res) => {
   const id = (await getLargestChatId(req, res)) + 1;
-  const messages = req.body.messages;
-  const name = "New Chat"; // tbd: generate a name based on the first message in the chat history -> llm
+  const { messages } = req.body;
+  const completion = await generateCompletion(
+    messages.push({
+      role: "user",
+      content:
+        "Summarize the conversation and return just the name for this conversation. No intro or outro text. Just the name.",
+    }),
+  ); // tbd: testing
+  const name = completion.content;
   const { data, error } = await supabase.from("chats").insert([
     {
       id,
