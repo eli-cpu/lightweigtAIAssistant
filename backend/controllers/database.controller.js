@@ -19,7 +19,7 @@ export const getChatHistory = async (req, res) => {
   const { id } = req.params;
   const { data, error } = await supabase
     .from("chats")
-    .select("messages")
+    .select("id, name, messages")
     .eq("id", id);
   if (error) {
     return res.status(500).json({ error: error.message });
@@ -42,9 +42,16 @@ export const createNewChat = async (req, res) => {
   const id = (await getLargestChatId(req, res)) + 1;
   const messages = req.body.messages;
   const name = "New Chat"; // tbd: generate a name based on the first message in the chat history -> llm
-  const { data, error } = await supabase
-    .from("chats")
-    .insert([{ id, messages, name }]);
+  const { data, error } = await supabase.from("chats").insert([
+    {
+      id,
+      user_id: req.user.id,
+      messages,
+      name,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ]);
 
   if (error) {
     return res.status(500).json({ error: error.message });
@@ -69,7 +76,7 @@ export const updateChatName = async (req, res) => {
   const { name } = req.body;
   const { data, error } = await supabase
     .from("chats")
-    .update({ name })
+    .update({ name, updated_at: new Date().toISOString() })
     .eq("id", id);
 
   if (error) {
@@ -84,7 +91,7 @@ export const updateChatHistory = async (req, res) => {
   const { messages } = req.body;
   const { data, error } = await supabase
     .from("chats")
-    .update({ messages })
+    .update({ messages, updated_at: new Date().toISOString() })
     .eq("id", id);
 
   if (error) {
