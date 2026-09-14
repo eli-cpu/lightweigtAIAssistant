@@ -71,7 +71,7 @@ export const createNewChat = async (req, res) => {
 };
 
 export const deleteChat = async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.query;
   const { data, error } = await supabase.from("chats").delete().eq("id", id);
 
   if (error) {
@@ -82,7 +82,7 @@ export const deleteChat = async (req, res) => {
 };
 
 export const updateChatName = async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.query;
   const { name } = req.body;
   const { data, error } = await supabase
     .from("chats")
@@ -97,7 +97,7 @@ export const updateChatName = async (req, res) => {
 };
 
 export const updateChatHistory = async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.query;
   const { messages } = req.body;
   const { data, error } = await supabase
     .from("chats")
