@@ -15,7 +15,7 @@ export const generateCompletion = async (messages) => {
       messages,
     });
 
-    return res.status(200).json({ response: response.choices[0].message });
+    return response.choices[0].message;
   } catch (error) {
     console.error("Error generating response:", error);
     return res.status(500).json({ error: "Failed to generate response" });

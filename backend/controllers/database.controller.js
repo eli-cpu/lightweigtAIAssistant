@@ -39,32 +39,35 @@ const getLargestChatId = async (req, res) => {
 };
 
 export const createNewChat = async (req, res) => {
-  const id = (await getLargestChatId(req, res)) + 1;
+  // const id = (await getLargestChatId(req, res)) + 1;
   const { messages } = req.body;
-  const completion = await generateCompletion(
-    messages.push({
+  const namingMessages = [
+    ...messages,
+    {
       role: "user",
       content:
-        "Summarize the conversation and return just the name for this conversation. No intro or outro text. Just the name.",
-    }),
-  ); // tbd: testing
-  const name = completion.content;
-  const { data, error } = await supabase.from("chats").insert([
-    {
-      id,
-      user_id: req.user.id,
-      messages,
-      name,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+        "Summarize the conversation and return only a short name. No intro or outro.",
     },
-  ]);
+  ];
+  const completion = await generateCompletion(namingMessages); // tbd: testing
+  const name = completion.content;
+  const { data, error } = await supabase
+    .from("chats")
+    .insert([
+      {
+        user_id: req.user.id,
+        messages,
+        name,
+      },
+    ])
+    .select("id, name, messages")
+    .single();
 
   if (error) {
     return res.status(500).json({ error: error.message });
   }
 
-  return res.status(201).json({ id });
+  return res.status(201).json({ data });
 };
 
 export const deleteChat = async (req, res) => {
