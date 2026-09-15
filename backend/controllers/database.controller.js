@@ -16,7 +16,7 @@ export const getID_ChatNames = async (req, res) => {
 
 // needs id
 export const getChatHistory = async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.query;
   const { data, error } = await supabase
     .from("chats")
     .select("id, name, messages")
@@ -166,7 +166,7 @@ export const updateChatName = async (req, res) => {
 export const updateChatHistory = async (req, res) => {
   try {
     const { id } = req.query;
-    const { messages } = req.body ?? {};
+    const { messages } = req.body;
 
     if (!id) {
       return res.status(400).json({ error: "Chat ID is required" });
@@ -180,13 +180,11 @@ export const updateChatHistory = async (req, res) => {
 
     const { data: chat, error: fetchError } = await supabase
       .from("chats")
-      .select("user_id")
+      .select("user_id, messages")
       .eq("id", id)
       .maybeSingle();
 
-    if (fetchError) {
-      return res.status(500).json({ error: fetchError.message });
-    }
+    if (fetchError) throw fetchError;
 
     if (!chat) {
       return res.status(404).json({ error: "Chat not found" });
@@ -198,10 +196,14 @@ export const updateChatHistory = async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase
+    const existingMessages = Array.isArray(chat.messages) ? chat.messages : [];
+
+    const updatedMessages = [...existingMessages, ...messages];
+
+    const { data, error: updateError } = await supabase
       .from("chats")
       .update({
-        messages,
+        messages: updatedMessages,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
@@ -209,9 +211,7 @@ export const updateChatHistory = async (req, res) => {
       .select("id, name, messages, updated_at")
       .single();
 
-    if (error) {
-      return res.status(500).json({ error: error.message });
-    }
+    if (updateError) throw updateError;
 
     return res.status(200).json({
       message: "Chat history updated successfully",
