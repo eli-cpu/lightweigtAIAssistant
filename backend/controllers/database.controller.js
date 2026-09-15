@@ -71,29 +71,96 @@ export const createNewChat = async (req, res) => {
 };
 
 export const deleteChat = async (req, res) => {
-  const { id } = req.query;
-  const { data, error } = await supabase.from("chats").delete().eq("id", id);
+  try {
+    const { id } = req.query;
 
-  if (error) {
-    return res.status(500).json({ error: error.message });
+    if (!id) {
+      return res.status(400).json({ error: "Chat ID is required" });
+    }
+
+    const { data: chat, error: fetchError } = await supabase
+      .from("chats")
+      .select("user_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchError) {
+      return res.status(500).json({ error: fetchError.message });
+    }
+
+    if (!chat) {
+      return res.status(404).json({ error: "Chat not found" });
+    }
+
+    if (chat.user_id !== req.user.id) {
+      return res
+        .status(403)
+        .json({ error: "Unauthorized to delete this chat" });
+    }
+
+    const { data, error } = await supabase
+      .from("chats")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", req.user.id);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({
+      message: "Chat deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting chat:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
-
-  return res.status(200);
 };
 
 export const updateChatName = async (req, res) => {
-  const { id } = req.query;
-  const { name } = req.body;
-  const { data, error } = await supabase
-    .from("chats")
-    .update({ name, updated_at: new Date().toISOString() })
-    .eq("id", id);
+  try {
+    const { id } = req.query;
+    if (!id) {
+      return res.status(400).json({ error: "Chat ID is required" });
+    }
+    const { data: chat, error: fetchError } = await supabase
+      .from("chats")
+      .select("user_id")
+      .eq("id", id)
+      .maybeSingle();
 
-  if (error) {
-    return res.status(500).json({ error: error.message });
+    if (fetchError) {
+      return res.status(500).json({ error: fetchError.message });
+    }
+
+    if (!chat) {
+      return res.status(404).json({ error: "Chat not found" });
+    }
+
+    if (chat.user_id !== req.user.id) {
+      return res
+        .status(403)
+        .json({ error: "Unauthorized to update this chat" });
+    }
+
+    const { name } = req.body;
+    const { data, error } = await supabase
+      .from("chats")
+      .update({ name, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("user_id", req.user.id);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({
+      message: "Chat updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating chat:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
-
-  return res.status(200);
 };
 
 export const updateChatHistory = async (req, res) => {

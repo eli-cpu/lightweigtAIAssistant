@@ -15,8 +15,8 @@ const router = express.Router();
 router.get("/chats", protectRoute, getID_ChatNames);
 router.get("/chats/:id", protectRoute, getChatHistory);
 router.post("/chats", protectRoute, createNewChat);
-router.delete("/chats/:id", protectRoute, deleteChat);
-router.put("/chats/:id/name", protectRoute, updateChatName);
-router.put("/chats/:id/history", protectRoute, updateChatHistory);
+router.delete("/chats/", protectRoute, deleteChat);
+router.put("/chats/name", protectRoute, updateChatName);
+router.put("/chats/history", protectRoute, updateChatHistory);
 
 export default router;
