@@ -164,16 +164,63 @@ export const updateChatName = async (req, res) => {
 };
 
 export const updateChatHistory = async (req, res) => {
-  const { id } = req.query;
-  const { messages } = req.body;
-  const { data, error } = await supabase
-    .from("chats")
-    .update({ messages, updated_at: new Date().toISOString() })
-    .eq("id", id);
+  try {
+    const { id } = req.query;
+    const { messages } = req.body ?? {};
 
-  if (error) {
-    return res.status(500).json({ error: error.message });
+    if (!id) {
+      return res.status(400).json({ error: "Chat ID is required" });
+    }
+
+    if (!Array.isArray(messages)) {
+      return res.status(400).json({
+        error: "Messages must be an array",
+      });
+    }
+
+    const { data: chat, error: fetchError } = await supabase
+      .from("chats")
+      .select("user_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchError) {
+      return res.status(500).json({ error: fetchError.message });
+    }
+
+    if (!chat) {
+      return res.status(404).json({ error: "Chat not found" });
+    }
+
+    if (String(chat.user_id) !== String(req.user.id)) {
+      return res.status(403).json({
+        error: "Unauthorized to update this chat",
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("chats")
+      .update({
+        messages,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("user_id", req.user.id)
+      .select("id, name, messages, updated_at")
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({
+      message: "Chat history updated successfully",
+      chat: data,
+    });
+  } catch (error) {
+    console.error("Error updating chat history:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+    });
   }
-
-  return res.status(200);
 };
