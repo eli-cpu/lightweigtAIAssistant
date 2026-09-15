@@ -21,10 +21,3 @@ export const generateCompletion = async (messages) => {
     return res.status(500).json({ error: "Failed to generate response" });
   }
 };
-
-export const generateResponse = async (req, res) => {
-  console.log("Received request body:", req.body);
-  const { messages } = req.body;
-
-  genrateCompletion(messages);
-};

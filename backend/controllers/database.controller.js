@@ -1,6 +1,6 @@
 import { supabase } from "../utils/supabaseConfig.js";
 import dotenv from "dotenv";
-import { generateCompletion } from "./llm.controller.js";
+import { generateCompletion } from "../utils/lllmConfig.js";
 
 dotenv.config();
 
