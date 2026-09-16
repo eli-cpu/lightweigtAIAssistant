@@ -1,0 +1,27 @@
+auth:
+  signup:
+    description: "Creates a new user account with username, email, and password. Validates email format, checks for duplicate username/email, hashes the password, inserts the user into Supabase, and sets an auth cookie."
+  login:
+    description: "Authenticates a user by username and password. Validates credentials against the stored password hash, issues an auth cookie, and returns the user profile."
+  logout:
+    description: "Clears the authentication cookie and ends the user session."
+
+chat:
+  createNewChat:
+    description: "Takes an initial message array as input, generates a short title for the conversation using the LLM, creates a new chat record in the database, and returns both the generated name and the assistant response."
+  getChatCompletion:
+    description: "Takes a chat id and a new message as input, fetches the existing chat context from the database, sends the full conversation history to the LLM, and returns the generated assistant answer."
+
+database:
+  getID_ChatNames:
+    description: "Returns a lightweight list of all chats for the current user, containing only the chat id and name."
+  getChatHistory:
+    description: "Fetches the full message history for a specific chat by id."
+  createNewChat:
+    description: "Creates a new chat entry in the database using the authenticated user id and the provided message history."
+  deleteChat:
+    description: "Deletes a specific chat by id, only if it belongs to the authenticated user."
+  updateChatName:
+    description: "Updates the display name of an existing chat."
+  updateChatHistory:
+    description: "Appends new messages to the existing chat history without replacing the old messages."
