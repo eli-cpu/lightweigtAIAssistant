@@ -10,7 +10,10 @@ import chatRoutes from "./routes/chat.route.js";
 dotenv.config();
 const app = express();
 
-app.use(cors()); // allows cross-origin requests from the frontend to the backend
+app.use(cors({
+  origin: "http://localhost:5173", // The frontend URL
+  credentials: true, // Allow cookies to be sent back and forth
+}));
 app.use(express.json()); // allows us to parse JSON bodies in requests
 app.use(cookieParser()); // allows us to parse cookies in requests
 

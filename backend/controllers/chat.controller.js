@@ -77,6 +77,7 @@ export const getChatCompletion = async (req, res) => {
       ...existingMessages,
       ...messages,
     ]);
+    const updatedMessages = [...existingMessages, ...messages, response];
     const { data, error: updateError } = await supabase
       .from("chats")
       .update({
