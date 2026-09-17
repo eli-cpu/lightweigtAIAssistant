@@ -98,6 +98,9 @@ export default function App() {
     };
 
     try {
+      const modelMessageId = Date.now().toString() + "-model";
+      let modelMessage = "";
+
       if (!currentChatId) {
         // Optimistic UI for new chat
         const tempId = Date.now().toString();
@@ -105,39 +108,51 @@ export default function App() {
           id: tempId,
           title: content.slice(0, 30) + '...',
           updatedAt: new Date(),
-          messages: [userMessage],
+          messages: [userMessage, { id: modelMessageId, role: 'model', content: '' }],
         };
         setChats(prev => [newChat, ...prev]);
         setCurrentChatId(tempId);
+        
+        let realChatId = tempId;
 
         // API Call
-        const { data } = await chatApi.createChat([userMessage]);
+        await chatApi.createChat(
+          [userMessage],
+          (chunk) => {
+            modelMessage += chunk;
+            setChats(prev => prev.map(c => c.id === realChatId ? {
+              ...c, 
+              messages: c.messages.map(m => m.id === modelMessageId ? { ...m, content: modelMessage } : m)
+            } : c));
+          },
+          (chatData) => {
+            realChatId = chatData.id.toString();
+            setChats(prev => prev.map(c => c.id === tempId ? {
+              ...c, id: realChatId
+            } : c));
+            setCurrentChatId(realChatId);
+          },
+          (name) => {
+            setChats(prev => prev.map(c => c.id === realChatId ? { ...c, title: name } : c));
+          }
+        );
         
-        // Replace temp chat with real chat
-        setChats(prev => prev.map(c => c.id === tempId ? {
-          id: data.id.toString(),
-          title: data.name,
-          updatedAt: new Date(),
-          messages: data.messages
-        } : c));
-        setCurrentChatId(data.id.toString());
       } else {
         // Optimistic UI for existing chat
         setChats(prev => prev.map(chat => 
           chat.id === currentChatId 
-            ? { ...chat, messages: [...chat.messages, userMessage], updatedAt: new Date() }
+            ? { ...chat, messages: [...chat.messages, userMessage, { id: modelMessageId, role: 'model', content: '' }], updatedAt: new Date() }
             : chat
         ));
 
         // API Call
-        const response = await chatApi.chatCompletion(currentChatId, [userMessage]);
-        
-        // Update with full history from backend
-        setChats(prev => prev.map(chat => 
-          chat.id === currentChatId 
-            ? { ...chat, messages: response.chat.messages }
-            : chat
-        ));
+        await chatApi.chatCompletion(currentChatId, [userMessage], (chunk) => {
+            modelMessage += chunk;
+            setChats(prev => prev.map(c => c.id === currentChatId ? {
+              ...c, 
+              messages: c.messages.map(m => m.id === modelMessageId ? { ...m, content: modelMessage } : m)
+            } : c));
+        });
       }
     } catch (error) {
       console.error('Error in chat flow:', error);

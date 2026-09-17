@@ -18,6 +18,14 @@ export const generateCompletion = async (messages) => {
     return response.choices[0].message;
   } catch (error) {
     console.error("Error generating response:", error);
-    return res.status(500).json({ error: "Failed to generate response" });
+    throw error;
   }
+};
+
+export const generateStreamCompletion = async (messages) => {
+  return await openai.chat.completions.create({
+    model: process.env.OLLAMA_MODEL,
+    messages,
+    stream: true,
+  });
 };

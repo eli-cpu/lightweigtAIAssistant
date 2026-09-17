@@ -13,6 +13,44 @@ const fetchWithCreds = async (url: string, options: RequestInit = {}) => {
   });
 };
 
+const processStream = async (
+  res: Response, 
+  onChunk: (content: string) => void,
+  onChatInfo?: (chatData: any) => void,
+  onNameUpdate?: (name: string) => void
+) => {
+  if (!res.body) throw new Error("No response body");
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || ""; // keep incomplete line
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const dataStr = line.slice(6).trim();
+        if (dataStr === '[DONE]') continue;
+        
+        try {
+          const data = JSON.parse(dataStr);
+          if (data.type === 'chunk') onChunk(data.content);
+          else if (data.type === 'chat_info' && onChatInfo) onChatInfo(data.chat);
+          else if (data.type === 'name_update' && onNameUpdate) onNameUpdate(data.name);
+          else if (data.type === 'error') throw new Error(data.message);
+        } catch (e) {
+          // ignore parse errors for partial chunks if any
+        }
+      }
+    }
+  }
+};
+
 export const chatApi = {
   getChats: () => fetchWithCreds('/database/chats').then(res => {
     if (!res.ok) throw new Error("Failed to load chats");
@@ -22,20 +60,24 @@ export const chatApi = {
     if (!res.ok) throw new Error("Failed to load history");
     return res.json();
   }),
-  createChat: (messages: Message[]) => fetchWithCreds('/chat/new', {
-    method: 'POST',
-    body: JSON.stringify({ messages }),
-  }).then(res => {
+  createChat: async (messages: Message[], onChunk: (content: string) => void, onChatInfo?: (chatData: any) => void, onNameUpdate?: (name: string) => void) => {
+    const res = await fetchWithCreds('/chat/new', {
+      method: 'POST',
+      body: JSON.stringify({ messages }),
+    });
     if (!res.ok) throw new Error("Failed to create chat");
-    return res.json();
-  }),
-  chatCompletion: (id: string, messages: Message[]) => fetchWithCreds(`/chat/completion?id=${id}`, {
-    method: 'POST',
-    body: JSON.stringify({ messages }),
-  }).then(res => {
+    
+    return processStream(res, onChunk, onChatInfo, onNameUpdate);
+  },
+  chatCompletion: async (id: string, messages: Message[], onChunk: (content: string) => void) => {
+    const res = await fetchWithCreds(`/chat/completion?id=${id}`, {
+      method: 'POST',
+      body: JSON.stringify({ messages }),
+    });
     if (!res.ok) throw new Error("Failed to get completion");
-    return res.json();
-  }),
+    
+    return processStream(res, onChunk);
+  },
   deleteChat: (id: string) => fetchWithCreds(`/database/chats?id=${id}`, {
     method: 'DELETE',
   }).then(res => {

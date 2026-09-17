@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { generateCompletion } from "../utils/lllmConfig.js";
+import { generateCompletion, generateStreamCompletion } from "../utils/lllmConfig.js";
 import { supabase } from "../utils/supabaseConfig.js";
 
 dotenv.config();
@@ -11,35 +11,71 @@ export const createNewChat = async (req, res) => {
     {
       role: "user",
       content:
-        "Summarize the conversation and return only a short name. No intro or outro.",
+        "Summarize the conversation and return only a short name. No intro or outro. Max 30 chars.",
     },
   ];
-  const [completion, answer] = await Promise.all([
-    generateCompletion(namingMessages),
-    generateCompletion(messages),
-  ]);
 
-  const name = completion.content;
-  const assistantMessage = answer;
-  console.log("Assistant message:", assistantMessage);
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
 
-  const { data, error } = await supabase
-    .from("chats")
-    .insert([
-      {
-        user_id: req.user.id,
-        messages: [...messages, assistantMessage],
-        name,
-      },
-    ])
-    .select("id, name, messages")
-    .single();
+  try {
+    // Start generating name in the background
+    const namePromise = generateCompletion(namingMessages).catch(() => ({ content: "New Chat" }));
 
-  if (error) {
-    return res.status(500).json({ error: error.message });
+    // Create chat in DB immediately to get an ID
+    const { data: chatData, error } = await supabase
+      .from("chats")
+      .insert([
+        {
+          user_id: req.user.id,
+          messages: messages,
+          name: "Generating...",
+        },
+      ])
+      .select("id, name, messages")
+      .single();
+
+    if (error) throw error;
+
+    // Send initial chat info to frontend
+    res.write(`data: ${JSON.stringify({ type: "chat_info", chat: chatData })}\n\n`);
+
+    // Start streaming completion
+    const stream = await generateStreamCompletion(messages);
+    let fullResponse = "";
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) {
+        fullResponse += content;
+        res.write(`data: ${JSON.stringify({ type: "chunk", content })}\n\n`);
+      }
+    }
+
+    // Wait for the name generation to finish
+    const nameCompletion = await namePromise;
+    const name = nameCompletion.content.replace(/["']/g, '');
+
+    // Update DB with final messages and name
+    await supabase
+      .from("chats")
+      .update({
+        messages: [...messages, { role: "model", content: fullResponse }],
+        name: name,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", chatData.id);
+
+    // Send final name update
+    res.write(`data: ${JSON.stringify({ type: "name_update", name })}\n\n`);
+    res.write("data: [DONE]\n\n");
+    res.end();
+  } catch (err) {
+    console.error("Stream error in createNewChat:", err);
+    res.write(`data: ${JSON.stringify({ type: "error", message: err.message })}\n\n`);
+    res.end();
   }
-
-  return res.status(201).json({ data });
 };
 
 export const getChatCompletion = async (req, res) => {
@@ -50,11 +86,8 @@ export const getChatCompletion = async (req, res) => {
     if (!id) {
       return res.status(400).json({ error: "Chat ID is required" });
     }
-
     if (!Array.isArray(messages)) {
-      return res.status(400).json({
-        error: "Messages must be an array",
-      });
+      return res.status(400).json({ error: "Messages must be an array" });
     }
 
     const { data: chat, error: fetchError } = await supabase
@@ -63,43 +96,54 @@ export const getChatCompletion = async (req, res) => {
       .eq("id", id)
       .maybeSingle();
 
-    if (!chat) {
-      return res.status(404).json({ error: "Chat not found" });
+    if (!chat) return res.status(404).json({ error: "Chat not found" });
+    if (String(chat.user_id) !== String(req.user.id)) {
+      return res.status(403).json({ error: "Unauthorized" });
     }
 
-    if (String(chat.user_id) !== String(req.user.id)) {
-      return res.status(403).json({
-        error: "Unauthorized to update this chat",
-      });
-    }
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
     const existingMessages = Array.isArray(chat.messages) ? chat.messages : [];
-    const response = await generateCompletion([
+    const stream = await generateStreamCompletion([
       ...existingMessages,
       ...messages,
     ]);
-    const updatedMessages = [...existingMessages, ...messages, response];
-    const { data, error: updateError } = await supabase
+
+    let fullResponse = "";
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) {
+        fullResponse += content;
+        res.write(`data: ${JSON.stringify({ type: "chunk", content })}\n\n`);
+      }
+    }
+
+    const updatedMessages = [
+      ...existingMessages,
+      ...messages,
+      { role: "model", content: fullResponse },
+    ];
+
+    await supabase
       .from("chats")
       .update({
         messages: updatedMessages,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", id)
-      .eq("user_id", req.user.id)
-      .select("id, name, messages, updated_at")
-      .single();
+      .eq("id", id);
 
-    if (updateError) throw updateError;
-
-    console.log("Response from generateCompletion:", response);
-    console.log("Updated chat data:", data);
-
-    return res.status(200).json({
-      message: "Chat history updated successfully",
-      chat: response,
-    });
+    res.write("data: [DONE]\n\n");
+    res.end();
   } catch (error) {
-    console.error("Error generating response:", error);
-    return res.status(500).json({ error: "Failed to generate response" });
+    console.error("Stream error in getChatCompletion:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to generate response" });
+    } else {
+      res.write(`data: ${JSON.stringify({ type: "error", message: error.message })}\n\n`);
+      res.end();
+    }
   }
 };
